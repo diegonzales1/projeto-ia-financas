@@ -1,524 +1,267 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-PT">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Finanças em Parceria - App de Controle</title>
+    <title>Cofre Casal Sincronizado</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- Chosen Palette: Slate, Emerald para ganhos e Rose para gastos -->
-    <!-- Application Structure Plan: 
-        O site foi desenhado como um Dashboard Interativo (SPA). 
-        Utiliza LocalStorage para salvar os dados no navegador do usuário, permitindo uso real imediato.
-        A estrutura separa:
-        1. Resumo Visual (Dashboard) com métricas de saúde financeira.
-        2. Lançamentos (Formulário inteligente que adapta campos conforme o tipo de conta).
-        3. Extrato Detalhado (Tabela com filtros).
-        4. Investimentos (Área dedicada ao crescimento patrimonial).
-    -->
-    <!-- Visualization & Content Choices: 
-        - Gráficos de Barra: Comparação direta entre as duas pessoas.
-        - Gráfico de Rosca: Proporção de gastos por categoria.
-        - Gráfico de Linha: Evolução dos investimentos.
-        - Ícones: Uso de emojis para facilitar a identificação visual sem carregar bibliotecas externas pesadas.
-    -->
-    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-        body { font-family: 'Inter', sans-serif; }
-        .chart-container {
-            position: relative;
-            width: 100%;
-            height: 300px;
-        }
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;700;800&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
-        .btn-tab.active {
-            background-color: #0d9488;
-            color: white;
-        }
+        .nav-active { background: #0d9488; color: white; box-shadow: 0 4px 12px rgba(13, 148, 136, 0.3); }
     </style>
 </head>
-<body class="bg-slate-50 text-slate-900">
+<body class="bg-slate-50 text-slate-900 min-h-screen">
 
-    <!-- Header / Nav -->
-    <nav class="bg-white border-b border-slate-200 sticky top-0 z-50">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between h-16 items-center">
-                <div class="flex items-center space-x-2">
-                    <div class="bg-teal-600 p-2 rounded-lg text-white">💰</div>
-                    <span class="text-xl font-bold tracking-tight text-slate-800">NossoDinheiro</span>
-                </div>
-                <div class="hidden md:flex space-x-2">
-                    <button onclick="switchTab('dash')" class="btn-tab active px-4 py-2 rounded-lg text-sm font-medium transition-all">Dashboard</button>
-                    <button onclick="switchTab('trans')" class="btn-tab px-4 py-2 rounded-lg text-sm font-medium transition-all">Lançamentos</button>
-                    <button onclick="switchTab('invest')" class="btn-tab px-4 py-2 rounded-lg text-sm font-medium transition-all">Investimentos</button>
-                    <button onclick="switchTab('config')" class="btn-tab px-4 py-2 rounded-lg text-sm font-medium transition-all">Configuração</button>
-                </div>
-                <!-- Mobile Nav -->
-                <div class="md:hidden flex space-x-1">
-                    <button onclick="switchTab('dash')" class="p-2">📊</button>
-                    <button onclick="switchTab('trans')" class="p-2">📝</button>
-                    <button onclick="switchTab('invest')" class="p-2">📈</button>
-                </div>
-            </div>
-        </div>
-    </nav>
-
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-
-        <!-- DASHBOARD TAB -->
-        <div id="tab-dash" class="tab-content active space-y-8">
-            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    <h1 class="text-3xl font-bold text-slate-900">Resumo Financeiro</h1>
-                    <p class="text-slate-500">Visão consolidada das contas de <span id="span-p1" class="font-semibold">Pessoa 1</span> e <span id="span-p2" class="font-semibold">Pessoa 2</span>.</p>
-                </div>
-                <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-                    <span class="text-sm text-slate-500 block uppercase font-bold tracking-widest">Saldo Total</span>
-                    <span id="txt-saldo-geral" class="text-2xl font-black text-teal-700">R$ 0,00</span>
-                </div>
-            </div>
-
-            <!-- Cards Superiores -->
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-                    <div class="flex items-center justify-between mb-2">
-                        <span class="text-slate-500 text-sm">Entradas</span>
-                        <span class="text-emerald-500 text-xl">⬇️</span>
-                    </div>
-                    <div id="txt-total-receitas" class="text-xl font-bold text-emerald-600">R$ 0,00</div>
-                </div>
-                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-                    <div class="flex items-center justify-between mb-2">
-                        <span class="text-slate-500 text-sm">Saídas</span>
-                        <span class="text-rose-500 text-xl">⬆️</span>
-                    </div>
-                    <div id="txt-total-despesas" class="text-xl font-bold text-rose-600">R$ 0,00</div>
-                </div>
-                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-                    <div class="flex items-center justify-between mb-2">
-                        <span class="text-slate-500 text-sm">Benefícios (VR/Flash)</span>
-                        <span class="text-orange-500 text-xl">💳</span>
-                    </div>
-                    <div id="txt-total-beneficios" class="text-xl font-bold text-orange-600">R$ 0,00</div>
-                </div>
-                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-                    <div class="flex items-center justify-between mb-2">
-                        <span class="text-slate-500 text-sm">Investido</span>
-                        <span class="text-blue-500 text-xl">🏛️</span>
-                    </div>
-                    <div id="txt-total-investido" class="text-xl font-bold text-blue-600">R$ 0,00</div>
-                </div>
-            </div>
-
-            <!-- Gráficos -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                    <h3 class="text-lg font-bold mb-6 text-slate-800">Comparativo Pessoa 1 vs Pessoa 2</h3>
-                    <div class="chart-container">
-                        <canvas id="chartUsers"></canvas>
-                    </div>
-                </div>
-                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                    <h3 class="text-lg font-bold mb-6 text-slate-800">Gastos por Categoria</h3>
-                    <div class="chart-container">
-                        <canvas id="chartCat"></canvas>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- TRANSACTIONS TAB -->
-        <div id="tab-trans" class="tab-content space-y-8">
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <!-- Formulário -->
-                <div class="lg:col-span-1">
-                    <div class="bg-white p-6 rounded-2xl shadow-md border border-slate-200 sticky top-24">
-                        <h2 class="text-xl font-bold mb-4">Novo Registro</h2>
-                        <form id="form-registro" class="space-y-4">
-                            <div>
-                                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Pessoa Responsável</label>
-                                <select id="reg-pessoa" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-teal-500 transition-all">
-                                    <option value="p1">Pessoa 1</option>
-                                    <option value="p2">Pessoa 2</option>
-                                </select>
-                            </div>
-                            <div class="grid grid-cols-2 gap-2">
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Tipo</label>
-                                    <select id="reg-tipo" onchange="ajustarCategorias()" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-teal-500">
-                                        <option value="saida">Gasto</option>
-                                        <option value="entrada">Entrada / Salário</option>
-                                        <option value="adiantamento">Adiantamento</option>
-                                        <option value="rendimento">Rendimento</option>
-                                        <option value="investimento">Investir</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Método</label>
-                                    <select id="reg-metodo" onchange="checkParcelas()" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-teal-500">
-                                        <option value="dinheiro">Pix / Dinheiro</option>
-                                        <option value="cartao">Cartão Crédito</option>
-                                        <option value="vr">Vale Refeição</option>
-                                        <option value="flash">Flash (Benefícios)</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div id="area-parcelas" class="hidden">
-                                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Parcelas</label>
-                                <input type="number" id="reg-parcelas" value="1" min="1" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5">
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Categoria</label>
-                                <select id="reg-categoria" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-teal-500">
-                                    <!-- Dinâmico -->
-                                </select>
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Descrição</label>
-                                <input type="text" id="reg-desc" placeholder="Ex: Mercado, Uber, Salário..." class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-teal-500">
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Valor (R$)</label>
-                                <input type="number" id="reg-valor" step="0.01" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 font-bold text-teal-700" placeholder="0.00">
-                            </div>
-                            <button type="submit" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-teal-100">Adicionar Registro</button>
-                        </form>
-                    </div>
-                </div>
-
-                <!-- Tabela de Extrato -->
-                <div class="lg:col-span-2">
-                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                        <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                            <h3 class="text-lg font-bold">Extrato Recente</h3>
-                            <button onclick="limparTudo()" class="text-xs text-rose-500 hover:underline font-medium">Limpar Tudo</button>
-                        </div>
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-left">
-                                <thead class="bg-slate-50 text-slate-400 text-[10px] uppercase font-bold tracking-widest">
-                                    <tr>
-                                        <th class="px-6 py-4">Data</th>
-                                        <th class="px-6 py-4">Pessoa</th>
-                                        <th class="px-6 py-4">Descrição</th>
-                                        <th class="px-6 py-4">Valor</th>
-                                        <th class="px-6 py-4"></th>
-                                    </tr>
-                                </thead>
-                                <tbody id="lista-transacoes" class="divide-y divide-slate-100 text-sm">
-                                    <!-- Dinâmico -->
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- INVESTIMENTOS TAB -->
-        <div id="tab-invest" class="tab-content space-y-8">
-            <div class="bg-blue-900 text-white p-8 rounded-3xl shadow-xl">
-                <h1 class="text-3xl font-bold mb-2">Carteira de Investimentos</h1>
-                <p class="text-blue-200 mb-6">Aqui acompanhamos o que o dinheiro está rendendo.</p>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div class="bg-blue-800/50 p-6 rounded-2xl border border-blue-700">
-                        <span class="block text-blue-300 text-xs uppercase font-bold mb-1">Total Patrimônio</span>
-                        <span id="txt-patrimonio" class="text-4xl font-black">R$ 0,00</span>
-                    </div>
-                    <div class="bg-blue-800/50 p-6 rounded-2xl border border-blue-700">
-                        <span class="block text-blue-300 text-xs uppercase font-bold mb-1">Rendimento Médio</span>
-                        <span id="txt-total-rendimentos" class="text-4xl font-black text-emerald-400">R$ 0,00</span>
-                    </div>
-                </div>
+    <!-- TELA DE AUTENTICAÇÃO -->
+    <div id="auth-screen" class="fixed inset-0 z-50 bg-white flex items-center justify-center p-6">
+        <div class="w-full max-w-md space-y-8">
+            <div class="text-center">
+                <div class="inline-flex bg-teal-600 text-white p-5 rounded-3xl text-3xl mb-4 shadow-xl">💍</div>
+                <h1 class="text-3xl font-black text-slate-800">Cofre do Casal</h1>
+                <p class="text-slate-500 font-medium">Controlo financeiro partilhado</p>
             </div>
             
-            <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                <h3 class="text-lg font-bold mb-4">Evolução de Ativos</h3>
-                <div class="chart-container" style="height: 400px;">
-                    <canvas id="chartInvest"></canvas>
+            <div class="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-2xl space-y-4">
+                <div class="space-y-2">
+                    <label class="text-xs font-bold text-slate-400 uppercase ml-1">E-mail do Casal</label>
+                    <input type="email" id="email" placeholder="exemplo@email.com" class="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-teal-500 transition-all">
                 </div>
+                <div class="space-y-2">
+                    <label class="text-xs font-bold text-slate-400 uppercase ml-1">Palavra-passe</label>
+                    <input type="password" id="password" placeholder="••••••••" class="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-teal-500 transition-all">
+                </div>
+                <div id="auth-error" class="hidden text-rose-500 text-xs font-bold text-center bg-rose-50 p-3 rounded-xl"></div>
+                
+                <button onclick="handleAuth('login')" class="w-full bg-teal-600 text-white font-black py-4 rounded-2xl shadow-lg hover:bg-teal-700 active:scale-[0.98] transition-all">ENTRAR</button>
+                <button onclick="handleAuth('signup')" class="w-full text-slate-400 text-xs font-bold hover:text-teal-600 transition-colors uppercase tracking-widest pt-2">Criar Conta para o Casal</button>
             </div>
         </div>
+    </div>
 
-        <!-- CONFIG TAB -->
-        <div id="tab-config" class="tab-content">
-            <div class="max-w-2xl mx-auto bg-white p-8 rounded-2xl border border-slate-200 shadow-sm space-y-6">
-                <h2 class="text-2xl font-bold">Personalizar Perfis</h2>
-                <div class="space-y-4">
-                    <div>
-                        <label class="block text-sm font-medium mb-1">Nome da Pessoa 1</label>
-                        <input type="text" id="cfg-p1" class="w-full border p-2 rounded-lg" placeholder="Ex: João">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium mb-1">Nome da Pessoa 2</label>
-                        <input type="text" id="cfg-p2" class="w-full border p-2 rounded-lg" placeholder="Ex: Maria">
-                    </div>
-                    <button onclick="salvarConfig()" class="w-full bg-slate-900 text-white py-3 rounded-xl font-bold">Salvar Configurações</button>
+    <!-- APP PRINCIPAL -->
+    <div id="app-screen" class="hidden flex flex-col min-h-screen">
+        <!-- Header -->
+        <header class="bg-white/80 backdrop-blur-md border-b sticky top-0 z-40 p-5">
+            <div class="max-w-2xl mx-auto flex justify-between items-center">
+                <div class="flex items-center gap-2">
+                    <span class="bg-teal-600 text-white p-1.5 rounded-lg text-xs font-black">CC</span>
+                    <h2 class="font-black text-xl tracking-tighter">CofreCasal</h2>
                 </div>
-                <div class="pt-6 border-t">
-                    <h3 class="font-bold text-rose-600 mb-2">Zona de Perigo</h3>
-                    <p class="text-xs text-slate-500 mb-4">Isso apagará permanentemente todos os dados salvos localmente no seu navegador.</p>
-                    <button onclick="resetaLocalStorage()" class="text-rose-500 border border-rose-200 px-4 py-2 rounded-lg text-sm font-medium">Resetar Todo o Banco de Dados</button>
+                <button onclick="logout()" class="p-2 text-slate-400 hover:text-rose-500 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                </button>
+            </div>
+        </header>
+
+        <main class="flex-1 max-w-2xl mx-auto w-full p-5 pb-32 space-y-6">
+            
+            <!-- ABA: DASHBOARD -->
+            <div id="tab-dash" class="tab-content active space-y-6">
+                <div class="bg-teal-600 p-8 rounded-[2.5rem] text-white shadow-2xl shadow-teal-200">
+                    <p class="text-[10px] font-bold uppercase tracking-widest opacity-70 mb-1">Saldo em Conjunto</p>
+                    <h3 id="dash-saldo" class="text-4xl font-black">R$ 0,00</h3>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+                        <p class="text-[10px] font-bold text-slate-400 uppercase mb-1">Despesas</p>
+                        <p id="dash-gastos" class="text-xl font-black text-rose-500">R$ 0,00</p>
+                    </div>
+                    <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+                        <p class="text-[10px] font-bold text-slate-400 uppercase mb-1">Poupado</p>
+                        <p id="dash-invest" class="text-xl font-black text-blue-500">R$ 0,00</p>
+                    </div>
+                </div>
+
+                <div class="space-y-3">
+                    <h4 class="text-sm font-black text-slate-400 uppercase tracking-widest ml-1">Movimentações Recentes</h4>
+                    <div id="lista-transacoes" class="space-y-3">
+                        <!-- Gerado por JS -->
+                    </div>
                 </div>
             </div>
-        </div>
 
-    </main>
+            <!-- ABA: ADICIONAR -->
+            <div id="tab-add" class="tab-content space-y-6">
+                <div class="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl space-y-5">
+                    <h3 class="text-xl font-black">Novo Lançamento</h3>
+                    
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">O que comprou?</label>
+                        <input type="text" id="in-desc" placeholder="Ex: Mercado, Jantar, Aluguer..." class="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none">
+                    </div>
+
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Valor (R$)</label>
+                        <input type="number" id="in-valor" placeholder="0.00" class="w-full p-4 bg-teal-50 border border-teal-100 rounded-2xl outline-none font-black text-teal-700 text-xl">
+                    </div>
+
+                    <div class="grid grid-cols-1 gap-4">
+                        <div class="space-y-2">
+                            <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Categoria</label>
+                            <select id="in-cat" class="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none">
+                                <option value="essencial">🏠 Essencial (Contas/Casa)</option>
+                                <option value="lazer">🍕 Lazer / Estilo de Vida</option>
+                                <option value="investimento">📈 Investimento / Poupança</option>
+                                <option value="entrada">💰 Salário / Entrada</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <button onclick="saveTransaction()" class="w-full bg-slate-900 text-white font-black py-5 rounded-2xl shadow-lg active:scale-95 transition-all">GRAVAR NA NUVEM</button>
+                </div>
+            </div>
+        </main>
+
+        <!-- NAVEGAÇÃO INFERIOR -->
+        <nav class="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-md bg-white/90 backdrop-blur-xl border border-white/20 p-2 rounded-[2rem] shadow-2xl flex gap-2 z-50">
+            <button onclick="switchTab('dash')" id="nav-dash" class="nav-active flex-1 py-4 rounded-[1.5rem] font-black text-[10px] uppercase tracking-widest transition-all">Resumo</button>
+            <button onclick="switchTab('add')" id="nav-add" class="flex-1 py-4 rounded-[1.5rem] font-black text-[10px] uppercase tracking-widest text-slate-400 transition-all">Lançar</button>
+        </nav>
+    </div>
 
     <script>
-        // ESTADO GLOBAL E PERSISTÊNCIA
-        let db = JSON.parse(localStorage.getItem('financas_db')) || {
-            transacoes: [],
-            config: { p1: "Pessoa 1", p2: "Pessoa 2" }
+        // --- CONFIGURAÇÃO FIREBASE EXTRAÍDA DA TUA IMAGEM ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyA0s8LSMQKvEBut2vk6MIhge0vBspa05cw", 
+            authDomain: "controle-gastos-financeiro-ia.firebaseapp.com",
+            projectId: "controle-gastos-financeiro-ia",
+            storageBucket: "controle-gastos-financeiro-ia.firebasestorage.app",
+            messagingSenderId: "225160152309",
+            appId: "1:225160152309:web:f861a726082c6abc1f71bc"
         };
 
-        const categorias = {
-            saida: ["Mercado", "Aluguel/Lazer", "Transporte", "Saúde", "Restaurante", "Outros"],
-            entrada: ["Salário", "Freelance", "Presente", "Bônus"],
-            adiantamento: ["Vale Salarial"],
-            rendimento: ["Dividendos", "Juros Poupança", "Rendimento FII"],
-            investimento: ["Ações", "FIIs", "Tesouro Direto", "Cripto", "Poupança"]
-        };
+        // Inicialização
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
 
-        let myCharts = {};
-
-        // INICIALIZAÇÃO
-        window.onload = () => {
-            document.getElementById('cfg-p1').value = db.config.p1;
-            document.getElementById('cfg-p2').value = db.config.p2;
-            ajustarCategorias();
-            renderTudo();
-        };
-
-        function switchTab(tabId) {
-            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.btn-tab').forEach(b => b.classList.remove('active'));
-            
-            document.getElementById('tab-' + tabId).classList.add('active');
-            
-            // Ativa botão correto na navegação desktop
-            const buttons = document.querySelectorAll('.btn-tab');
-            buttons.forEach(btn => {
-                if(btn.innerText.toLowerCase().includes(tabId === 'dash' ? 'dash' : tabId)) {
-                    btn.classList.add('active');
-                }
-            });
-
-            if(tabId === 'dash' || tabId === 'invest') renderCharts();
-        }
-
-        function ajustarCategorias() {
-            const tipo = document.getElementById('reg-tipo').value;
-            const select = document.getElementById('reg-categoria');
-            select.innerHTML = "";
-            categorias[tipo].forEach(cat => {
-                let opt = document.createElement('option');
-                opt.value = cat;
-                opt.innerText = cat;
-                select.appendChild(opt);
-            });
-        }
-
-        function checkParcelas() {
-            const metodo = document.getElementById('reg-metodo').value;
-            const area = document.getElementById('area-parcelas');
-            metodo === 'cartao' ? area.classList.remove('hidden') : area.classList.add('hidden');
-        }
-
-        // SALVAMENTO E LÓGICA
-        document.getElementById('form-registro').onsubmit = (e) => {
-            e.preventDefault();
-            const val = parseFloat(document.getElementById('reg-valor').value);
-            if(!val) return alert("Insira um valor válido");
-
-            const nova = {
-                id: Date.now(),
-                pessoa: document.getElementById('reg-pessoa').value,
-                tipo: document.getElementById('reg-tipo').value,
-                metodo: document.getElementById('reg-metodo').value,
-                parcelas: parseInt(document.getElementById('reg-parcelas').value) || 1,
-                categoria: document.getElementById('reg-categoria').value,
-                desc: document.getElementById('reg-desc').value,
-                valor: val,
-                data: new Date().toISOString()
-            };
-
-            db.transacoes.push(nova);
-            save();
-            renderTudo();
-            e.target.reset();
-            ajustarCategorias();
-            checkParcelas();
-        };
-
-        function save() {
-            localStorage.setItem('financas_db', JSON.stringify(db));
-        }
-
-        function deletar(id) {
-            db.transacoes = db.transacoes.filter(t => t.id !== id);
-            save();
-            renderTudo();
-        }
-
-        function limparTudo() {
-            if(confirm("Deseja limpar todo o extrato?")) {
-                db.transacoes = [];
-                save();
-                renderTudo();
+        // Monitor de Autenticação
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                document.getElementById('auth-screen').classList.add('hidden');
+                document.getElementById('app-screen').classList.remove('hidden');
+                startSync(user.uid);
+            } else {
+                document.getElementById('auth-screen').classList.remove('hidden');
+                document.getElementById('app-screen').classList.add('hidden');
             }
-        }
+        });
 
-        function salvarConfig() {
-            db.config.p1 = document.getElementById('cfg-p1').value || "Pessoa 1";
-            db.config.p2 = document.getElementById('cfg-p2').value || "Pessoa 2";
-            save();
-            renderTudo();
-            alert("Configurações salvas!");
-        }
+        // Funções de Login / Registo
+        async function handleAuth(mode) {
+            const email = document.getElementById('email').value;
+            const pass = document.getElementById('password').value;
+            const errorDiv = document.getElementById('auth-error');
+            errorDiv.classList.add('hidden');
 
-        function resetaLocalStorage() {
-            if(confirm("ATENÇÃO: Isso apagará TUDO. Continuar?")) {
-                localStorage.removeItem('financas_db');
-                location.reload();
-            }
-        }
+            if(!email || !pass) return alert("Preenche os dados!");
 
-        // RENDERIZAÇÃO DE UI
-        function renderTudo() {
-            document.getElementById('span-p1').innerText = db.config.p1;
-            document.getElementById('span-p2').innerText = db.config.p2;
-            
-            // Atualizar Select
-            document.querySelector('#reg-pessoa option[value="p1"]').innerText = db.config.p1;
-            document.querySelector('#reg-pessoa option[value="p2"]').innerText = db.config.p2;
-
-            const lista = document.getElementById('lista-transacoes');
-            lista.innerHTML = "";
-
-            let sSaldo = 0, sRec = 0, sDesp = 0, sBen = 0, sInv = 0, sRend = 0;
-
-            db.transacoes.slice().reverse().forEach(t => {
-                const tr = document.createElement('tr');
-                const isPos = t.tipo === 'entrada' || t.tipo === 'rendimento';
-                const isInv = t.tipo === 'investimento';
-                
-                // Cálculos
-                if(t.tipo === 'entrada') sRec += t.valor;
-                if(t.tipo === 'saida') sDesp += t.valor;
-                if(t.metodo === 'vr' || t.metodo === 'flash') sBen += t.valor;
-                if(t.tipo === 'investimento') sInv += t.valor;
-                if(t.tipo === 'rendimento') sRend += t.valor;
-
-                const displayVal = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(t.valor);
-                const dataFormat = new Date(t.data).toLocaleDateString();
-
-                tr.innerHTML = `
-                    <td class="px-6 py-4 text-slate-400 font-medium">${dataFormat}</td>
-                    <td class="px-6 py-4"><span class="bg-slate-100 px-2 py-1 rounded text-[10px] font-bold uppercase">${db.config[t.pessoa]}</span></td>
-                    <td class="px-6 py-4">
-                        <div class="font-semibold text-slate-700">${t.desc || t.categoria}</div>
-                        <div class="text-[10px] text-slate-400 uppercase">${t.metodo} ${t.parcelas > 1 ? '• '+t.parcelas+'x' : ''}</div>
-                    </td>
-                    <td class="px-6 py-4 font-bold ${isPos ? 'text-emerald-500' : (isInv ? 'text-blue-500' : 'text-rose-500')}">
-                        ${isPos ? '+' : '-'} ${displayVal}
-                    </td>
-                    <td class="px-6 py-4 text-right">
-                        <button onclick="deletar(${t.id})" class="text-slate-300 hover:text-rose-500 transition-colors">✕</button>
-                    </td>
-                `;
-                lista.appendChild(tr);
-            });
-
-            // Update Totais
-            sSaldo = sRec + sRend - sDesp - sInv;
-            document.getElementById('txt-saldo-geral').innerText = f(sSaldo);
-            document.getElementById('txt-total-receitas').innerText = f(sRec);
-            document.getElementById('txt-total-despesas').innerText = f(sDesp);
-            document.getElementById('txt-total-beneficios').innerText = f(sBen);
-            document.getElementById('txt-total-investido').innerText = f(sInv);
-            document.getElementById('txt-patrimonio').innerText = f(sInv);
-            document.getElementById('txt-total-rendimentos').innerText = f(sRend);
-
-            renderCharts();
-        }
-
-        function f(v) {
-            return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
-        }
-
-        // GRÁFICOS
-        function renderCharts() {
-            // Data Agregation
-            let p1Data = { in: 0, out: 0 }, p2Data = { in: 0, out: 0 };
-            let catStats = {};
-            let investStats = {};
-
-            db.transacoes.forEach(t => {
-                if(t.pessoa === 'p1') {
-                    if(t.tipo === 'entrada') p1Data.in += t.valor;
-                    if(t.tipo === 'saida') p1Data.out += t.valor;
+            try {
+                if(mode === 'login') {
+                    await auth.signInWithEmailAndPassword(email, pass);
                 } else {
-                    if(t.tipo === 'entrada') p2Data.in += t.valor;
-                    if(t.tipo === 'saida') p2Data.out += t.valor;
+                    await auth.createUserWithEmailAndPassword(email, pass);
                 }
-
-                if(t.tipo === 'saida') {
-                    catStats[t.categoria] = (catStats[t.categoria] || 0) + t.valor;
-                }
-                
-                if(t.tipo === 'investimento') {
-                    investStats[t.categoria] = (investStats[t.categoria] || 0) + t.valor;
-                }
-            });
-
-            // Chart Users
-            const ctxUser = document.getElementById('chartUsers').getContext('2d');
-            if(myCharts.users) myCharts.users.destroy();
-            myCharts.users = new Chart(ctxUser, {
-                type: 'bar',
-                data: {
-                    labels: [db.config.p1, db.config.p2],
-                    datasets: [
-                        { label: 'Ganhos', data: [p1Data.in, p2Data.in], backgroundColor: '#10b981' },
-                        { label: 'Gastos', data: [p1Data.out, p2Data.out], backgroundColor: '#f43f5e' }
-                    ]
-                },
-                options: { responsive: true, maintainAspectRatio: false }
-            });
-
-            // Chart Categories
-            const ctxCat = document.getElementById('chartCat').getContext('2d');
-            if(myCharts.cat) myCharts.cat.destroy();
-            myCharts.cat = new Chart(ctxCat, {
-                type: 'doughnut',
-                data: {
-                    labels: Object.keys(catStats),
-                    datasets: [{
-                        data: Object.values(catStats),
-                        backgroundColor: ['#0d9488', '#0ea5e9', '#6366f1', '#f59e0b', '#ec4899', '#94a3b8']
-                    }]
-                },
-                options: { responsive: true, maintainAspectRatio: false, cutout: '70%' }
-            });
-
-            // Chart Investimentos
-            const ctxInv = document.getElementById('chartInvest').getContext('2d');
-            if(myCharts.inv) myCharts.inv.destroy();
-            myCharts.inv = new Chart(ctxInv, {
-                type: 'bar',
-                data: {
-                    labels: Object.keys(investStats),
-                    datasets: [{
-                        label: 'Valor Aplicado',
-                        data: Object.values(investStats),
-                        backgroundColor: '#1e3a8a'
-                    }]
-                },
-                options: { responsive: true, maintainAspectRatio: false }
-            });
+            } catch (err) {
+                errorDiv.innerText = err.message;
+                errorDiv.classList.remove('hidden');
+            }
         }
+
+        // Sincronização em Tempo Real
+        function startSync(uid) {
+            db.collection('users').doc(uid).collection('transactions').orderBy('timestamp', 'desc')
+              .onSnapshot(snap => {
+                  let totalSaldo = 0, totalGastos = 0, totalInvest = 0;
+                  const lista = document.getElementById('lista-transacoes');
+                  lista.innerHTML = "";
+
+                  if (snap.empty) {
+                      lista.innerHTML = "<div class='text-center py-8 text-slate-300 font-bold italic'>Ainda não há lançamentos.</div>";
+                  }
+
+                  snap.forEach(doc => {
+                      const t = doc.data();
+                      const isEntrada = t.cat === 'entrada';
+                      
+                      totalSaldo += isEntrada ? t.valor : -t.valor;
+                      if (!isEntrada) {
+                          totalGastos += t.valor;
+                          if (t.cat === 'investimento') totalInvest += t.valor;
+                      }
+
+                      lista.innerHTML += `
+                        <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm flex justify-between items-center group transition-all hover:border-teal-100">
+                            <div class="flex items-center gap-4">
+                                <div class="w-10 h-10 rounded-2xl flex items-center justify-center text-xl bg-slate-50">
+                                    ${t.cat === 'entrada' ? '💰' : t.cat === 'investimento' ? '📈' : t.cat === 'lazer' ? '🍕' : '🏠'}
+                                </div>
+                                <div>
+                                    <p class="font-bold text-slate-700">${t.desc}</p>
+                                    <p class="text-[10px] font-bold text-slate-300 uppercase">${new Date(t.timestamp).toLocaleDateString('pt-PT')}</p>
+                                </div>
+                            </div>
+                            <p class="font-black ${isEntrada ? 'text-teal-600' : 'text-rose-500'}">
+                                ${isEntrada ? '+' : '-'} R$ ${t.valor.toLocaleString('pt-PT', {minimumFractionDigits: 2})}
+                            </p>
+                        </div>
+                      `;
+                  });
+
+                  document.getElementById('dash-saldo').innerText = "R$ " + totalSaldo.toLocaleString('pt-PT', {minimumFractionDigits: 2});
+                  document.getElementById('dash-gastos').innerText = "R$ " + totalGastos.toLocaleString('pt-PT', {minimumFractionDigits: 2});
+                  document.getElementById('dash-invest').innerText = "R$ " + totalInvest.toLocaleString('pt-PT', {minimumFractionDigits: 2});
+              }, err => {
+                  console.error("Erro no Firestore:", err);
+                  // Se cair aqui, é provável que as regras do Firestore não estejam em "Modo de Teste"
+              });
+        }
+
+        // Gravar Transação
+        async function saveTransaction() {
+            const desc = document.getElementById('in-desc').value;
+            const valor = parseFloat(document.getElementById('in-valor').value);
+            const cat = document.getElementById('in-cat').value;
+
+            if(!desc || isNaN(valor)) return alert("Preenche a descrição e o valor!");
+
+            try {
+                await db.collection('users').doc(auth.currentUser.uid).collection('transactions').add({
+                    desc,
+                    valor,
+                    cat,
+                    timestamp: Date.now()
+                });
+                
+                // Limpar e voltar ao dash
+                document.getElementById('in-desc').value = "";
+                document.getElementById('in-valor').value = "";
+                switchTab('dash');
+            } catch (e) {
+                alert("Erro ao gravar: " + e.message);
+            }
+        }
+
+        // Troca de Abas
+        function switchTab(id) {
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.getElementById('tab-' + id).classList.add('active');
+            
+            document.querySelectorAll('nav button').forEach(b => b.classList.remove('nav-active', 'text-slate-400'));
+            document.getElementById('nav-' + id).classList.add('nav-active');
+        }
+
+        function logout() { auth.signOut(); }
     </script>
 </body>
 </html>
