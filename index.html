@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cofre Casal Sincronizado</title>
+    <title>Cofre Casal - Sincronizado</title>
     <script src="https://cdn.tailwindcss.com"></script>
     
     <!-- Firebase SDKs -->
@@ -12,125 +12,103 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;700;800&display=swap');
-        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; -webkit-tap-highlight-color: transparent; }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
-        .nav-active { background: #0d9488; color: white; box-shadow: 0 4px 12px rgba(13, 148, 136, 0.3); }
+        .nav-active { background: #0d9488; color: white; box-shadow: 0 10px 15px -3px rgba(13, 148, 136, 0.4); }
+        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
     </style>
 </head>
-<body class="bg-slate-50 text-slate-900 min-h-screen">
+<body class="bg-slate-50 text-slate-900 min-h-screen pb-20">
 
-    <!-- TELA DE AUTENTICAÇÃO -->
-    <div id="auth-screen" class="fixed inset-0 z-50 bg-white flex items-center justify-center p-6">
-        <div class="w-full max-w-md space-y-8">
+    <!-- LOGIN SCREEN -->
+    <div id="auth-screen" class="fixed inset-0 z-[100] bg-white flex items-center justify-center p-6">
+        <div class="w-full max-w-sm space-y-8">
             <div class="text-center">
-                <div class="inline-flex bg-teal-600 text-white p-5 rounded-3xl text-3xl mb-4 shadow-xl">💍</div>
-                <h1 class="text-3xl font-black text-slate-800">Cofre do Casal</h1>
-                <p class="text-slate-500 font-medium">Controlo financeiro partilhado</p>
+                <div class="inline-flex bg-teal-600 text-white p-5 rounded-[2rem] text-4xl mb-4 shadow-2xl">🔐</div>
+                <h1 class="text-3xl font-black text-slate-800 tracking-tight">Cofre do Casal</h1>
+                <p class="text-slate-400 font-medium">Controlo financeiro em nuvem</p>
             </div>
             
-            <div class="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-2xl space-y-4">
-                <div class="space-y-2">
-                    <label class="text-xs font-bold text-slate-400 uppercase ml-1">E-mail do Casal</label>
-                    <input type="email" id="email" placeholder="exemplo@email.com" class="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-teal-500 transition-all">
-                </div>
-                <div class="space-y-2">
-                    <label class="text-xs font-bold text-slate-400 uppercase ml-1">Palavra-passe</label>
-                    <input type="password" id="password" placeholder="••••••••" class="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-teal-500 transition-all">
-                </div>
-                <div id="auth-error" class="hidden text-rose-500 text-xs font-bold text-center bg-rose-50 p-3 rounded-xl"></div>
+            <div class="space-y-4">
+                <input type="email" id="email" placeholder="E-mail do Casal" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-teal-500 transition-all">
+                <input type="password" id="password" placeholder="Palavra-passe" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-teal-500 transition-all">
                 
-                <button onclick="handleAuth('login')" class="w-full bg-teal-600 text-white font-black py-4 rounded-2xl shadow-lg hover:bg-teal-700 active:scale-[0.98] transition-all">ENTRAR</button>
-                <button onclick="handleAuth('signup')" class="w-full text-slate-400 text-xs font-bold hover:text-teal-600 transition-colors uppercase tracking-widest pt-2">Criar Conta para o Casal</button>
+                <div id="auth-msg" class="hidden p-4 rounded-xl bg-rose-50 text-rose-600 text-xs font-bold text-center"></div>
+
+                <button onclick="handleAuth('login')" class="w-full bg-teal-600 text-white font-bold py-5 rounded-2xl shadow-lg hover:bg-teal-700 active:scale-95 transition-all">ENTRAR</button>
+                <button onclick="handleAuth('signup')" class="w-full text-slate-400 text-xs font-bold hover:text-teal-600 uppercase tracking-widest text-center block pt-2">Criar conta nova</button>
             </div>
         </div>
     </div>
 
-    <!-- APP PRINCIPAL -->
-    <div id="app-screen" class="hidden flex flex-col min-h-screen">
-        <!-- Header -->
-        <header class="bg-white/80 backdrop-blur-md border-b sticky top-0 z-40 p-5">
-            <div class="max-w-2xl mx-auto flex justify-between items-center">
-                <div class="flex items-center gap-2">
-                    <span class="bg-teal-600 text-white p-1.5 rounded-lg text-xs font-black">CC</span>
-                    <h2 class="font-black text-xl tracking-tighter">CofreCasal</h2>
-                </div>
-                <button onclick="logout()" class="p-2 text-slate-400 hover:text-rose-500 transition-colors">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+    <!-- MAIN APP -->
+    <div id="app-screen" class="hidden">
+        <header class="bg-white/80 backdrop-blur-md border-b sticky top-0 z-40 p-6">
+            <div class="max-w-xl mx-auto flex justify-between items-center">
+                <h2 class="font-black text-2xl text-teal-600 tracking-tighter">CofreCasal</h2>
+                <button onclick="logout()" class="text-slate-300 hover:text-rose-500 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
                 </button>
             </div>
         </header>
 
-        <main class="flex-1 max-w-2xl mx-auto w-full p-5 pb-32 space-y-6">
-            
-            <!-- ABA: DASHBOARD -->
+        <main class="max-w-xl mx-auto p-6 space-y-6">
+            <!-- DASHBOARD -->
             <div id="tab-dash" class="tab-content active space-y-6">
-                <div class="bg-teal-600 p-8 rounded-[2.5rem] text-white shadow-2xl shadow-teal-200">
-                    <p class="text-[10px] font-bold uppercase tracking-widest opacity-70 mb-1">Saldo em Conjunto</p>
-                    <h3 id="dash-saldo" class="text-4xl font-black">R$ 0,00</h3>
+                <div class="bg-teal-600 p-10 rounded-[2.5rem] text-white shadow-2xl shadow-teal-200 relative overflow-hidden">
+                    <div class="relative z-10">
+                        <p class="text-xs font-bold uppercase tracking-widest opacity-60 mb-2">Saldo Sincronizado</p>
+                        <h3 id="dash-saldo" class="text-5xl font-extrabold tracking-tight">R$ 0,00</h3>
+                    </div>
+                    <div class="absolute -right-4 -bottom-4 text-white/10 text-9xl font-black italic">$$</div>
                 </div>
 
                 <div class="grid grid-cols-2 gap-4">
                     <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-                        <p class="text-[10px] font-bold text-slate-400 uppercase mb-1">Despesas</p>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase mb-2">Despesas</p>
                         <p id="dash-gastos" class="text-xl font-black text-rose-500">R$ 0,00</p>
                     </div>
                     <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-                        <p class="text-[10px] font-bold text-slate-400 uppercase mb-1">Poupado</p>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase mb-2">Poupado</p>
                         <p id="dash-invest" class="text-xl font-black text-blue-500">R$ 0,00</p>
                     </div>
                 </div>
 
-                <div class="space-y-3">
-                    <h4 class="text-sm font-black text-slate-400 uppercase tracking-widest ml-1">Movimentações Recentes</h4>
-                    <div id="lista-transacoes" class="space-y-3">
-                        <!-- Gerado por JS -->
-                    </div>
+                <div class="space-y-4">
+                    <h4 class="font-black text-slate-800 text-lg">Histórico do Casal</h4>
+                    <div id="lista-transacoes" class="space-y-3"></div>
                 </div>
             </div>
 
-            <!-- ABA: ADICIONAR -->
-            <div id="tab-add" class="tab-content space-y-6">
-                <div class="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl space-y-5">
-                    <h3 class="text-xl font-black">Novo Lançamento</h3>
-                    
-                    <div class="space-y-2">
-                        <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">O que comprou?</label>
-                        <input type="text" id="in-desc" placeholder="Ex: Mercado, Jantar, Aluguer..." class="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none">
+            <!-- ADD TRANSACTION -->
+            <div id="tab-add" class="tab-content">
+                <div class="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl space-y-6">
+                    <h3 class="text-2xl font-black">Novo Lançamento</h3>
+                    <div class="space-y-4">
+                        <input type="text" id="in-desc" placeholder="O que foi?" class="w-full p-4 bg-slate-50 border rounded-2xl outline-none focus:ring-2 focus:ring-teal-500">
+                        <input type="number" id="in-valor" placeholder="Valor R$" class="w-full p-4 bg-teal-50 border border-teal-100 rounded-2xl outline-none font-black text-teal-700 text-2xl">
+                        <select id="in-cat" class="w-full p-4 bg-slate-50 border rounded-2xl outline-none">
+                            <option value="essencial">🏠 Essencial (Contas/Casa)</option>
+                            <option value="lazer">🍕 Lazer / Restaurantes</option>
+                            <option value="invest">📈 Investimento / Poupança</option>
+                            <option value="entrada">💰 Salário / Outras Entradas</option>
+                        </select>
+                        <button onclick="saveTrans()" class="w-full bg-slate-900 text-white font-black py-5 rounded-2xl shadow-lg active:scale-95 transition-all uppercase tracking-widest">Gravar agora</button>
                     </div>
-
-                    <div class="space-y-2">
-                        <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Valor (R$)</label>
-                        <input type="number" id="in-valor" placeholder="0.00" class="w-full p-4 bg-teal-50 border border-teal-100 rounded-2xl outline-none font-black text-teal-700 text-xl">
-                    </div>
-
-                    <div class="grid grid-cols-1 gap-4">
-                        <div class="space-y-2">
-                            <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Categoria</label>
-                            <select id="in-cat" class="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none">
-                                <option value="essencial">🏠 Essencial (Contas/Casa)</option>
-                                <option value="lazer">🍕 Lazer / Estilo de Vida</option>
-                                <option value="investimento">📈 Investimento / Poupança</option>
-                                <option value="entrada">💰 Salário / Entrada</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <button onclick="saveTransaction()" class="w-full bg-slate-900 text-white font-black py-5 rounded-2xl shadow-lg active:scale-95 transition-all">GRAVAR NA NUVEM</button>
                 </div>
             </div>
         </main>
 
-        <!-- NAVEGAÇÃO INFERIOR -->
-        <nav class="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-md bg-white/90 backdrop-blur-xl border border-white/20 p-2 rounded-[2rem] shadow-2xl flex gap-2 z-50">
-            <button onclick="switchTab('dash')" id="nav-dash" class="nav-active flex-1 py-4 rounded-[1.5rem] font-black text-[10px] uppercase tracking-widest transition-all">Resumo</button>
-            <button onclick="switchTab('add')" id="nav-add" class="flex-1 py-4 rounded-[1.5rem] font-black text-[10px] uppercase tracking-widest text-slate-400 transition-all">Lançar</button>
+        <!-- FOOTER NAV -->
+        <nav class="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-sm bg-white/90 backdrop-blur-xl border border-slate-200 p-2 rounded-[2rem] shadow-2xl flex gap-2 z-50">
+            <button onclick="showTab('dash')" id="nav-dash" class="nav-active flex-1 py-4 rounded-[1.5rem] font-black text-[10px] uppercase tracking-tighter transition-all">Painel</button>
+            <button onclick="showTab('add')" id="nav-add" class="flex-1 py-4 rounded-[1.5rem] font-black text-[10px] uppercase tracking-tighter text-slate-400 transition-all">Novo Gasto</button>
         </nav>
     </div>
 
     <script>
-        // --- CONFIGURAÇÃO FIREBASE EXTRAÍDA DA TUA IMAGEM ---
         const firebaseConfig = {
             apiKey: "AIzaSyA0s8LSMQKvEBut2vk6MIhge0vBspa05cw", 
             authDomain: "controle-gastos-financeiro-ia.firebaseapp.com",
@@ -140,125 +118,101 @@
             appId: "1:225160152309:web:f861a726082c6abc1f71bc"
         };
 
-        // Inicialização
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const db = firebase.firestore();
 
-        // Monitor de Autenticação
+        // Listener de Login
         auth.onAuthStateChanged(user => {
             if (user) {
                 document.getElementById('auth-screen').classList.add('hidden');
                 document.getElementById('app-screen').classList.remove('hidden');
-                startSync(user.uid);
+                syncData(user.uid);
             } else {
                 document.getElementById('auth-screen').classList.remove('hidden');
                 document.getElementById('app-screen').classList.add('hidden');
             }
         });
 
-        // Funções de Login / Registo
         async function handleAuth(mode) {
-            const email = document.getElementById('email').value;
-            const pass = document.getElementById('password').value;
-            const errorDiv = document.getElementById('auth-error');
-            errorDiv.classList.add('hidden');
-
-            if(!email || !pass) return alert("Preenche os dados!");
+            const e = document.getElementById('email').value;
+            const p = document.getElementById('password').value;
+            const msg = document.getElementById('auth-msg');
+            msg.classList.add('hidden');
+            
+            if(!e || !p) return alert("Preenche os dados!");
 
             try {
-                if(mode === 'login') {
-                    await auth.signInWithEmailAndPassword(email, pass);
-                } else {
-                    await auth.createUserWithEmailAndPassword(email, pass);
-                }
+                if(mode === 'login') await auth.signInWithEmailAndPassword(e, p);
+                else await auth.createUserWithEmailAndPassword(e, p);
             } catch (err) {
-                errorDiv.innerText = err.message;
-                errorDiv.classList.remove('hidden');
+                msg.innerText = "Erro: " + err.message;
+                msg.classList.remove('hidden');
             }
         }
 
-        // Sincronização em Tempo Real
-        function startSync(uid) {
-            db.collection('users').doc(uid).collection('transactions').orderBy('timestamp', 'desc')
-              .onSnapshot(snap => {
-                  let totalSaldo = 0, totalGastos = 0, totalInvest = 0;
-                  const lista = document.getElementById('lista-transacoes');
-                  lista.innerHTML = "";
+        function syncData(uid) {
+            db.collection('users').doc(uid).collection('history')
+              .orderBy('time', 'desc').onSnapshot(snap => {
+                let saldo = 0, gastos = 0, invest = 0, html = "";
+                
+                snap.forEach(doc => {
+                    const t = doc.data();
+                    const isIn = t.cat === 'entrada';
+                    saldo += isIn ? t.valor : -t.valor;
+                    if(!isIn) { 
+                        gastos += t.valor; 
+                        if(t.cat === 'invest') invest += t.valor;
+                    }
 
-                  if (snap.empty) {
-                      lista.innerHTML = "<div class='text-center py-8 text-slate-300 font-bold italic'>Ainda não há lançamentos.</div>";
-                  }
-
-                  snap.forEach(doc => {
-                      const t = doc.data();
-                      const isEntrada = t.cat === 'entrada';
-                      
-                      totalSaldo += isEntrada ? t.valor : -t.valor;
-                      if (!isEntrada) {
-                          totalGastos += t.valor;
-                          if (t.cat === 'investimento') totalInvest += t.valor;
-                      }
-
-                      lista.innerHTML += `
-                        <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm flex justify-between items-center group transition-all hover:border-teal-100">
+                    html += `
+                        <div class="bg-white p-5 rounded-3xl border border-slate-100 flex justify-between items-center">
                             <div class="flex items-center gap-4">
-                                <div class="w-10 h-10 rounded-2xl flex items-center justify-center text-xl bg-slate-50">
-                                    ${t.cat === 'entrada' ? '💰' : t.cat === 'investimento' ? '📈' : t.cat === 'lazer' ? '🍕' : '🏠'}
+                                <div class="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-xl">
+                                    ${t.cat==='entrada'?'💰':t.cat==='invest'?'📈':t.cat==='lazer'?'🍕':'🏠'}
                                 </div>
                                 <div>
-                                    <p class="font-bold text-slate-700">${t.desc}</p>
-                                    <p class="text-[10px] font-bold text-slate-300 uppercase">${new Date(t.timestamp).toLocaleDateString('pt-PT')}</p>
+                                    <p class="font-bold text-slate-800">${t.desc}</p>
+                                    <p class="text-[10px] text-slate-300 font-bold uppercase">${new Date(t.time).toLocaleDateString('pt-PT')}</p>
                                 </div>
                             </div>
-                            <p class="font-black ${isEntrada ? 'text-teal-600' : 'text-rose-500'}">
-                                ${isEntrada ? '+' : '-'} R$ ${t.valor.toLocaleString('pt-PT', {minimumFractionDigits: 2})}
+                            <p class="font-black text-lg ${isIn?'text-teal-600':'text-rose-500'}">
+                                ${isIn?'+':'-'} R$ ${t.valor.toLocaleString('pt-PT', {minimumFractionDigits:2})}
                             </p>
                         </div>
-                      `;
-                  });
+                    `;
+                });
 
-                  document.getElementById('dash-saldo').innerText = "R$ " + totalSaldo.toLocaleString('pt-PT', {minimumFractionDigits: 2});
-                  document.getElementById('dash-gastos').innerText = "R$ " + totalGastos.toLocaleString('pt-PT', {minimumFractionDigits: 2});
-                  document.getElementById('dash-invest').innerText = "R$ " + totalInvest.toLocaleString('pt-PT', {minimumFractionDigits: 2});
-              }, err => {
-                  console.error("Erro no Firestore:", err);
-                  // Se cair aqui, é provável que as regras do Firestore não estejam em "Modo de Teste"
-              });
+                document.getElementById('dash-saldo').innerText = "R$ " + saldo.toLocaleString('pt-PT', {minimumFractionDigits:2});
+                document.getElementById('dash-gastos').innerText = "R$ " + gastos.toLocaleString('pt-PT', {minimumFractionDigits:2});
+                document.getElementById('dash-invest').innerText = "R$ " + invest.toLocaleString('pt-PT', {minimumFractionDigits:2});
+                document.getElementById('lista-transacoes').innerHTML = html || "<p class='text-center py-10 text-slate-300 font-bold italic'>Ainda não há lançamentos.</p>";
+            }, err => {
+                console.log("Aguardando ativação das regras do Firestore...");
+            });
         }
 
-        // Gravar Transação
-        async function saveTransaction() {
+        async function saveTrans() {
             const desc = document.getElementById('in-desc').value;
             const valor = parseFloat(document.getElementById('in-valor').value);
             const cat = document.getElementById('in-cat').value;
 
-            if(!desc || isNaN(valor)) return alert("Preenche a descrição e o valor!");
+            if(!desc || !valor) return alert("Preenche a descrição e o valor!");
 
-            try {
-                await db.collection('users').doc(auth.currentUser.uid).collection('transactions').add({
-                    desc,
-                    valor,
-                    cat,
-                    timestamp: Date.now()
-                });
-                
-                // Limpar e voltar ao dash
-                document.getElementById('in-desc').value = "";
-                document.getElementById('in-valor').value = "";
-                switchTab('dash');
-            } catch (e) {
-                alert("Erro ao gravar: " + e.message);
-            }
+            await db.collection('users').doc(auth.currentUser.uid).collection('history').add({
+                desc, valor, cat, time: Date.now()
+            });
+
+            document.getElementById('in-desc').value = "";
+            document.getElementById('in-valor').value = "";
+            showTab('dash');
         }
 
-        // Troca de Abas
-        function switchTab(id) {
+        function showTab(id) {
             document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-            document.getElementById('tab-' + id).classList.add('active');
-            
+            document.getElementById('tab-'+id).classList.add('active');
             document.querySelectorAll('nav button').forEach(b => b.classList.remove('nav-active', 'text-slate-400'));
-            document.getElementById('nav-' + id).classList.add('nav-active');
+            document.getElementById('nav-'+id).classList.add('nav-active');
         }
 
         function logout() { auth.signOut(); }
