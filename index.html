@@ -144,6 +144,14 @@
 
   <script>
     // --- CONFIGURAÇÃO ---
+    // Import the functions you need from the SDKs you need
+    import { initializeApp } from "firebase/app";
+    import { getAnalytics } from "firebase/analytics";
+    // TODO: Add SDKs for Firebase products that you want to use
+    // https://firebase.google.com/docs/web/setup#available-libraries
+
+    // Your web app's Firebase configuration
+    // For Firebase JS SDK v7.20.0 and later, measurementId is optional
     const firebaseConfig = {
       apiKey: "AIzaSyA0s8LSMQKvEBUt2vk6MIhge0vBsPaO5cw",
       authDomain: "controle-gastos-financeiro-ia.firebaseapp.com",
@@ -154,10 +162,9 @@
       measurementId: "G-83LJ24TXCC"
     };
 
-    // Inicialização Segura
-    firebase.initializeApp(firebaseConfig);
-    const auth = firebase.auth();
-    const db = firebase.firestore();
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const analytics = getAnalytics(app);
 
     // Monitor de Estado
     auth.onAuthStateChanged(user => {
